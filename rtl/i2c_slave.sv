@@ -15,7 +15,9 @@ module i2c_slave #
   input logic en_i,
     
   output logic [DATA_WIDTH - 1 : 0] data_o,
-  //input logic [DATA_WIDTH - 1 : 0] data_i,
+  input logic [DATA_WIDTH - 1 : 0] data_i,
+  input logic [ADDR_WIDTH - 1 : 0] self_addr_i,
+  
   
   input logic scl_i,
   input logic scl_o,
@@ -47,15 +49,28 @@ module i2c_slave #
   
   fsm_state_t fsm_state;
   
+  logic sda_prev;
+  logic [ADDR_WIDTH - 1 : 0] self_addr;
+  logic [DATA_BIT_NUM - 1 : 0] bit_counter;
+  logic [DATA_WIDTH - 1  : 0] sent_data; 
+  logic [DATA_WIDTH - 1  : 0] recv_data;  
+  logic sda;
+  
   
   always_ff @ (posedge clk_i)
     begin
       if (s_rst_n_i == 1'b0)
         begin
           fsm_state <= IDLE_STATE;
+          sda_prev <= 1'h1;
          
          
-         // self_addr  <= 'h0;
+         self_addr  <= self_addr_i;
+         
+
+
+          sent_data  <= 'h0;
+
         
         end
       else
@@ -65,39 +80,37 @@ module i2c_slave #
             IDLE_STATE:
               begin
                 fsm_state <= IDLE_STATE;
+                sda_prev <= sda_i;
               
                 if (en_i == 1'b1)
                   begin
-                    
-
                         fsm_state <= START_STATE;
-                
-             
-                   
+                        self_addr  <= self_addr_i;
+                        sent_data <= data_i;
                   end
               end
               
             START_STATE:
               begin
-                if ((sda_i == 'h0) && (scl_i == 1'h1))
-                      begin
-                        fsm_state <= START_STATE;
-                      end
+                if ((sda_prev == 1'h1) && (sda_i == 'h0) && (scl_i == 1'h1))
+                  begin
+                    fsm_state <= ADDR_STATE;
+                  end
               end
               
             ADDR_STATE:
               begin
-                if (scl_cntr == (prescale_quart - 1))
+                if (scl_i == 1'h1)
                   begin
-                    slave_addr <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
-                    sda <= slave_addr[6];
+                    self_addr <= {self_addr[ADDR_WIDTH - 2 : 0], sda_i};
+                    
                     bit_counter <= bit_counter + 'h1;
                     
-                    if (bit_counter == 'h6)
+                    if (bit_counter == 'h7)
                       begin
                         bit_counter <= 'h0;
                         
-                        if (dir == 'h1)
+                        if (sda_i == 'h1)
                           begin
                             fsm_state <= WRITE_STATE;
                           end
@@ -111,16 +124,37 @@ module i2c_slave #
                   
               WRITE_STATE:
                 begin
-                  if (scl_cntr == (prescale_quart - 1))
+                  if (scl_i == 1'h1)
                     begin
                       sent_data <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
                       sda <= sent_data[7];
+                      
+                      bit_counter <= bit_counter + 'h1;
+                      sda_prev <= sda_i;
+                      
+                      if (bit_counter == 'h7)
+                        begin
+                          bit_counter <= 'h0;
+                          
+                          if ((sda_i == 1'h0) && (sda_prev == 1'h1))
+                          fsm_state <= STOP_STATE;
+                        end
+                    end
+                end
+                
+              READ_STATE:
+                begin
+                  if (scl_i == 1'h1)
+                    begin
+                      recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
                       
                       bit_counter <= bit_counter + 'h1;
                       
                       if (bit_counter == 'h7)
                         begin
                           bit_counter <= 'h0;
+                          
+                          if ((sda_i == 1'h0) && (sda_prev == 1'h1))
                           fsm_state <= STOP_STATE;
                         end
                     end
@@ -128,20 +162,17 @@ module i2c_slave #
                 
               STOP_STATE:
                 begin
-                  sda <= 'h0;
-                
-                  if (scl_cntr == (prescale_half - 1))
+                  if (scl_i == 1'h1)
                     begin
-                      sda <= 'h1;
-                      fsm_state <= IDLE_STATE;
-                      bit_counter <= 'h0;
-                    end
-                end 
-          
+                          sda <= 'h1;
+                          fsm_state <= IDLE_STATE;
+                          bit_counter <= 'h0;
+                     end
+                end
           endcase
         end
     end 
   
- 
+ assign sda_o = sda;
 
 endmodule
