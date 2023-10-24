@@ -2,7 +2,7 @@ module rom #
 (
   parameter integer DATA_WIDTH = 8,
   parameter integer ADDR_WIDTH = 8,
-
+  
   parameter string  INIT_FILE  = ""
 )
 (
