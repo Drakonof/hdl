@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
@@ -20,9 +22,9 @@ class I2c_master_tb(object):
         self.dut.en_i = 1
         self.dut.prescale_i = 8
 
-    async def send_addr(self, addr):
+    async def send_addr(self, addr, rw):
         self.dut.slave_addr_i = addr
-        self.dut.dir_i = 1
+        self.dut.dir_i = rw
 
     async def send_data(self, data):
         self.dut.data_i = data
@@ -38,10 +40,10 @@ async def main(dut):
 
     await tb.reset()
     await tb.start()
-    await tb.send_addr(0x58)
+    await tb.send_addr(0x58, 0)
     await tb.send_data(0x64)
     await tb.clock_tick()
-    await tb.check_start(300)
+    await tb.check_start(800)
 
 
 if __name__ == "__main__":
