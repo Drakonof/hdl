@@ -28,8 +28,8 @@ module i2c_master #
   //todo: input logic scl_i,
   //todo: output logic scl_t,
   
-  output logic sda_o
-  //todo: input logic sda_i,
+  output logic sda_o,
+  input  logic sda_i
   //todo: output logic sda_t
 );
 
@@ -54,7 +54,8 @@ module i2c_master #
   
   logic [PRESC_WIDTH - 1 : 0]  prescale;
   logic [PRESC_WIDTH - 1 : 0]  prescale_half;
-  logic [DATA_WIDTH - 1 : 0]   sent_data; 
+  logic [DATA_WIDTH - 1 : 0]   sent_data;
+  logic [DATA_WIDTH - 1 : 0]   recv_data; 
   logic [ADDR_WIDTH - 1 : 0]   slave_addr;
   logic                        dir;
   
@@ -78,13 +79,9 @@ module i2c_master #
       if (s_rst_n_i == 1'b0)
         begin
           scl_tick   <= 'h1;
-          scl_cntr   <= 'h0;
-          strob_tick <= 1'h0;
         end
       else if (en_i == 1'h1)
         begin
-          scl_cntr <= scl_cntr + 'h1;
-          
           if ((fsm_state == IDLE_STATE) || 
               (fsm_state == STOP_STATE))
             begin
@@ -93,14 +90,41 @@ module i2c_master #
           else if (scl_cntr == (prescale - 'h1))
             begin
               scl_tick <= !scl_tick;
-              scl_cntr <= 'h0;
-            end
-          else if (scl_cntr == (prescale - 'h2))
-            begin
-              strob_tick <= !strob_tick;
             end
         end
     end
+
+    always_ff @ (posedge clk_i)
+      begin
+        if (s_rst_n_i == 1'b0)
+          begin
+            strob_tick <= '0;
+          end
+        else
+          begin
+            if (scl_cntr == (prescale - prescale_half - 2'h2))
+              begin
+                strob_tick <= !strob_tick;
+              end
+          end
+      end
+
+    always_ff @ (posedge clk_i)
+      begin
+        if (s_rst_n_i == 1'b0)
+          begin
+            scl_cntr   <= 'h0;
+          end
+        else
+          begin
+            scl_cntr <= scl_cntr + 'h1;
+
+            if (scl_cntr == (prescale - 'h1))
+            begin
+              scl_cntr <= 'h0;
+            end
+          end
+      end
 
     always_ff @ (posedge clk_i)
       begin
@@ -120,16 +144,18 @@ module i2c_master #
         begin
           fsm_state     <= IDLE_STATE;
 
-          prescale      <= 'h0;
-          sent_data     <= 'h0;
+          prescale_half <= '0;
+          prescale      <= '0;
+          
+          sent_data     <= '0;
 
-          dir           <= 'h0;
-          slave_addr    <= 'h0;
+          dir           <= '0;
+          slave_addr    <= '0;
           sda           <= 'h1;
           
-          bit_counter   <= 'h0;
+          bit_counter   <= '0;
 
-          prescale_half <= 'h0;
+          recv_data     <= '0;
         end
       else
         begin
@@ -193,7 +219,7 @@ module i2c_master #
               begin
                 if (scl_strob == 1'h1)  
                   begin
-                    if (dir == 'h1)
+                    if (dir == 'h0)
                       begin
                         fsm_state <= WRITE_STATE;
 
@@ -203,6 +229,7 @@ module i2c_master #
                     else
                       begin
                         fsm_state <= READ_STATE;
+                        recv_data <= '0;
                       end
                   end
               end
@@ -224,6 +251,23 @@ module i2c_master #
                         end
                     end
                 end
+
+              READ_STATE:
+                begin
+                  if (scl_strob == 1'h1)
+                    begin
+                      recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
+                      
+                      bit_counter <= bit_counter + 'h1;
+                      
+                      if (bit_counter == 'h7)
+                        begin
+                          bit_counter <= 'h0;
+                          fsm_state   <= STOP_STATE;
+                          sda         <= 'h0;
+                        end
+                    end
+                end
                 
               STOP_STATE:
                 begin
@@ -231,6 +275,22 @@ module i2c_master #
                     begin
                       sda <= 'h1;
                     end
+                end
+
+              default:
+                begin
+                  fsm_state     <= IDLE_STATE;
+
+                  prescale_half <= 'h0;
+                  prescale      <= 'h0;
+          
+                  sent_data     <= 'h0;
+
+                  dir           <= 'h0;
+                  slave_addr    <= 'h0;
+                  sda           <= 'h1;
+          
+                  bit_counter   <= 'h0;
                 end
           endcase
         end
