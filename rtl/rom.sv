@@ -3,7 +3,7 @@ module rom #
   parameter integer DATA_WIDTH = 8,
   parameter integer ADDR_WIDTH = 8,
 
-  parameter    INIT_FILE  = ""
+  parameter string  INIT_FILE  = ""
 )
 (
   input  logic                      clk_i,
