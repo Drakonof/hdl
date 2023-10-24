@@ -3,7 +3,7 @@ module rom #
   parameter integer DATA_WIDTH = 8,
   parameter integer ADDR_WIDTH = 8,
 
-  parameter    INIT_FILE  = ""
+  parameter    INIT_FILE  = "/home/artem/H/hdl/tb/rom_tb/rom_init.mem"
 )
 (
   input  logic                      clk_i,
