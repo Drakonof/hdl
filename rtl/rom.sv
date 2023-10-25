@@ -9,13 +9,13 @@ module rom #
   input  logic                      clk_i,
   input  logic [ADDR_WIDTH - 1 : 0] addr_i,
 
-  output logic [ADDR_WIDTH - 1 : 0] data_o
+  output logic [DATA_WIDTH - 1 : 0] data_o
 );
 
   localparam integer MEM_DEPTH = 2 ** ADDR_WIDTH;
 
-  logic [ADDR_WIDTH - 1 : 0] data;
-  logic [ADDR_WIDTH - 1 : 0] rom_mem [0 : MEM_DEPTH - 1];
+  logic [DATA_WIDTH - 1 : 0] data;
+  logic [DATA_WIDTH - 1 : 0] rom_mem [0 : MEM_DEPTH - 1];
 
   initial 
     begin
