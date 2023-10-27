@@ -1,9 +1,9 @@
 module rom #
 (
-  parameter integer DATA_WIDTH = 8,
-  parameter integer ADDR_WIDTH = 8,
+  parameter unsigned DATA_WIDTH = 8,
+  parameter unsigned ADDR_WIDTH = 8,
   
-  parameter string  INIT_FILE  = ""
+  parameter          INIT_FILE  = ""
 )
 (
   input  logic                      clk_i,
@@ -12,7 +12,7 @@ module rom #
   output logic [DATA_WIDTH - 1 : 0] data_o
 );
 
-  localparam integer MEM_DEPTH = 2 ** ADDR_WIDTH;
+  localparam unsigned MEM_DEPTH = 2 ** ADDR_WIDTH;
 
   logic [DATA_WIDTH - 1 : 0] data;
   logic [DATA_WIDTH - 1 : 0] rom_mem [0 : MEM_DEPTH - 1];
