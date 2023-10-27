@@ -1,8 +1,14 @@
+`include "platform.vh"
+
 module rom #
 (
   parameter unsigned DATA_WIDTH = 8,
   parameter unsigned ADDR_WIDTH = 8,
   
+`ifdef XILINX
+  parameter          RAM_TYPE    = "block", // "distributed", "block"
+`endif
+
   parameter          INIT_FILE  = ""
 )
 (
@@ -15,6 +21,10 @@ module rom #
   localparam unsigned MEM_DEPTH = 2 ** ADDR_WIDTH;
 
   logic [DATA_WIDTH - 1 : 0] data;
+  
+`ifdef XILINX
+  (*ram_style = RAM_TYPE*)
+`endif
   logic [DATA_WIDTH - 1 : 0] rom_mem [0 : MEM_DEPTH - 1];
 
   initial 
@@ -40,9 +50,11 @@ module rom #
       data_o = data;
     end
 
+`ifndef XILINX
   initial begin
     $dumpfile("dump.vcd");
     $dumpvars(1, rom);
   end
+`endif
 
 endmodule
