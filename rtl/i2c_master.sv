@@ -72,6 +72,7 @@ module i2c_master #
 
   
   fsm_state_t fsm_state;
+  fsm_state_t next_state;
   
 
   always_ff @ (posedge clk_i)
@@ -115,14 +116,13 @@ module i2c_master #
           begin
             scl_cntr   <= 'h0;
           end
+        else if (scl_cntr == (prescale - 'h1))
+          begin
+            scl_cntr <= 'h0;
+          end
         else
           begin
             scl_cntr <= scl_cntr + 'h1;
-
-            if (scl_cntr == (prescale - 'h1))
-            begin
-              scl_cntr <= 'h0;
-            end
           end
       end
 
@@ -138,159 +138,237 @@ module i2c_master #
           end
       end
 
+  
+  
+
+  //1
   always_ff @ (posedge clk_i)
-    begin
-      if (s_rst_n_i == 1'b0)
+  begin
+    if (s_rst_n_i == 1'b0)
+      begin
+        fsm_state <= IDLE_STATE;
+      end
+    else
+      begin
+        fsm_state <= next_state;
+      end
+  end
+
+  //2
+  always_comb
+    next_state = fsm_state;
+
+    case (fsm_state)
+      IDLE_STATE:
         begin
-          fsm_state     <= IDLE_STATE;
-
-          prescale_half <= '0;
-          prescale      <= '0;
-          
-          sent_data     <= '0;
-
-          dir           <= '0;
-          slave_addr    <= '0;
-          sda           <= 'h1;
-          
-          bit_counter   <= '0;
-
-          recv_data     <= '0;
+           if (en_i == 1'b1)
+             next_state = START_STATE;
         end
-      else
+      START_STATE:
+        if (scl_strob == 1'h1)
+          next_state = ADDR_STATE;
+      
+      ADDR_STATE:
+        if (scl_strob == 1'h1)
+          if (bit_counter == 'h6)
+             next_state = DIR_STATE;
+
+      DIR_STATE:
+        if (scl_strob == 1'h1)  
+          if (dir == 'h0)
+            next_state = READ_STATE;
+          else
+            next_state = WRITE_STATE;
+      
+      WRITE_STATE:
+         if (scl_strob == 1'h1)
+          if (bit_counter == 'h7)
+             next_state = STOP_STATE;
+
+      READ_STATE:
+         if (scl_strob == 1'h1)
+           if (bit_counter == 'h7)
+             next_state = STOP_STATE;
+
+      //todo:
+      STOP_STATE:
+             next_state = STOP_STATE;
+      default:
+        next_state = fsm_state; 
+
+    endcase
+
+
+  always_ff @(posedge clk_i)
+  begin
+    if (en_i == 1'b1)
+      begin
+        
+        dir           <= dir_i;
+        
+        
+        prescale      <= prescale_i;
+        prescale_half <= {1'h0, prescale_i[PRESC_WIDTH - 1 : 1]};
+   
+
+      end
+  end
+
+  always_ff @(posedge clk_i)
+  begin
+   if (s_rst_n_i == 1'b0)
+      bit_counter <= 'h0;
+    else if ((fsm_state == START_STATE) || (fsm_state == DIR_STATE))
+      begin
+        bit_counter <= bit_counter + 'h1;
+      end
+  end
+
+
+  always_ff @(posedge clk_i)
+  begin
+   if (s_rst_n_i == 1'b0)
+      slave_addr <= 'h0;
+    else if (en_i == 1'b1) 
+      slave_addr    <= slave_addr_i;
+    else if ((fsm_state == ADDR_STATE) && (scl_strob == 1'h1))
+      begin
+        slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
+      end
+  end
+
+  always_ff @(posedge clk_i)
+  begin
+   if (s_rst_n_i == 1'b0)
+      sent_data <= 'h0;
+    else if (en_i == 1'b1) 
+      sent_data     <= data_i;
+    else if ((fsm_state == WRITE_STATE) && (scl_strob == 1'h1))
+      begin
+        sent_data  <= {sent_data[ADDR_WIDTH - 2 : 0], 1'h0};
+      end
+  end
+
+  always_ff @(posedge clk_i)
+  begin
+   if (s_rst_n_i == 1'b0)
+      recv_data <= 'h0;
+    else if (en_i == 1'b1) 
+      recv_data     <= '0;
+    else if ((fsm_state == READ_STATE) && (scl_strob == 1'h1))
+      begin
+        recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
+      end
+  end
+
+
+  
+  //3
+  always_comb
         begin
           case (fsm_state)
           
             IDLE_STATE:
               begin
-                fsm_state <= IDLE_STATE;
-              
-                if (en_i == 1'b1)
-                  begin
-                    fsm_state     <= START_STATE;
-
-                    sent_data     <= data_i;
-                    dir           <= dir_i;
-                    slave_addr    <= slave_addr_i;
-                    
-                    prescale      <= prescale_i;
-                    prescale_half <= {1'h0, prescale_i[PRESC_WIDTH - 1 : 1]};
-                    
-                    sda           <= 'h1;
-                  end
+                sda = 'h1;
               end
               
             START_STATE:
               begin
                 if (scl_cntr == (prescale_half - 1))
                   begin
-                    sda <= 'h0;
+                    sda = 'h0;
+                  end
+                else
+                  begin
+                    sda = 'h1;
                   end
                 
-                if (scl_strob == 1'h1)
-                  begin
-                    fsm_state   <= ADDR_STATE;
+               // if (scl_strob == 1'h1)
+               //   begin
+               //     fsm_state   <= ADDR_STATE;
 
-                    bit_counter <= 'h0;
-                    sda         <= slave_addr[6];
-                    slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
-                  end
+                //    bit_counter <= 'h0; //sep
+           
+                //    slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0}; //sep
+                //  end
               end
               
             ADDR_STATE:
               begin
-                if (scl_strob == 1'h1)
-                  begin
-                    slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
-                    sda         <= slave_addr[6];
-                    bit_counter <= bit_counter + 'h1;
+              ///  if (scl_strob == 1'h1)
+              ///    begin
+                //    slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
+                    sda         = slave_addr[6];
+                //    bit_counter <= bit_counter + 'h1;
 
-                    if (bit_counter == 'h6)
-                      begin
-                        bit_counter <= 'h0;
-                        sda         <= dir;
+                    // if (bit_counter == 'h6)
+                    //   begin
+                    //     bit_counter <= 'h0;
+                       
                         
-                        fsm_state   <= DIR_STATE;
-                      end
-                  end
+                    //   end
+                ///  end
+
               end
 
             DIR_STATE:
               begin
-                if (scl_strob == 1'h1)  
-                  begin
-                    if (dir == 'h0)
-                      begin
-                        fsm_state <= WRITE_STATE;
+             ///   if (scl_strob == 1'h1)  
+             ///     begin
 
-                        sent_data <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
-                        sda <= sent_data[7];
-                      end
-                    else
-                      begin
-                        fsm_state <= READ_STATE;
-                        recv_data <= '0;
-                      end
-                  end
+                  //      sent_data <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
+                        sda <= dir;
+              ///    end
               end
                   
               WRITE_STATE:
                 begin
-                  if (scl_strob == 1'h1) 
-                    begin
-                      sent_data   <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
+                 /// if (scl_strob == 1'h1) 
+                 ///   begin
+                   //   sent_data   <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
                       sda         <= sent_data[7];
                       
-                      bit_counter <= bit_counter + 'h1;
+                   //   bit_counter <= bit_counter + 'h1;
                       
-                      if (bit_counter == 'h7)
-                        begin
-                          bit_counter <= 'h0;
-                          fsm_state   <= STOP_STATE;
-                          sda         <= 'h0;
-                        end
-                    end
+                      // if (bit_counter == 'h7)
+                      //   begin
+                      //     bit_counter <= 'h0;
+                     ///    sda         <= 'h0;
+                     //   end
+                  ///  end
                 end
 
               READ_STATE:
                 begin
-                  if (scl_strob == 1'h1)
-                    begin
-                      recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
+              ///    if (scl_strob == 1'h1)
+              ///      begin
+                //sda_t = 1;
+                    //   recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
                       
-                      bit_counter <= bit_counter + 'h1;
+                    //   bit_counter <= bit_counter + 'h1;
                       
-                      if (bit_counter == 'h7)
-                        begin
-                          bit_counter <= 'h0;
-                          fsm_state   <= STOP_STATE;
-                          sda         <= 'h0;
-                        end
-                    end
+                    //   if (bit_counter == 'h7)
+                    //     begin
+                    //       bit_counter <= 'h0;
+                    //       sda         <= 'h0;
+                    //     end
+                    // end
                 end
                 
               STOP_STATE:
                 begin
                   if (scl_cntr == (prescale_half - 1))
                     begin
-                      sda <= 'h1;
+                      sda = 'h1;
                     end
+                  else
+                    sda = 'h0;
                 end
 
               default:
                 begin
-                  fsm_state     <= IDLE_STATE;
-
-                  prescale_half <= 'h0;
-                  prescale      <= 'h0;
-          
-                  sent_data     <= 'h0;
-
-                  dir           <= 'h0;
-                  slave_addr    <= 'h0;
-                  sda           <= 'h1;
-          
-                  bit_counter   <= 'h0;
+                  sda = 1'h1;
                 end
           endcase
         end
