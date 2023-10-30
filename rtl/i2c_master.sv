@@ -40,15 +40,18 @@ module i2c_master #
 
   typedef enum logic [FSM_STATE_WIDTH - 1  : 0] {
     IDLE_STATE,
-    START_STATE,
-    //todo: REP_START_STATE,
+    START_1_STATE,
+    START_2_STATE,
+    REP_START_STATE,
     ADDR_STATE,
     DIR_STATE,
     WRITE_STATE,
     READ_STATE,
     RECV_ACK_STATE,
     SEND_ACK_STATE,
-    STOP_STATE
+    STOP_1_STATE,
+    STOP_2_STATE,
+    ACK_STATE
   } fsm_state_t;
 
   
@@ -84,7 +87,7 @@ module i2c_master #
       else if (en_i == 1'h1)
         begin
           if ((fsm_state == IDLE_STATE) || 
-              (fsm_state == STOP_STATE))
+              (fsm_state == STOP_2_STATE))
             begin
               scl_tick <= 'h1;
             end
@@ -103,7 +106,7 @@ module i2c_master #
           end
         else
           begin
-            if (scl_cntr == (prescale - prescale_half - 2'h2))
+            if (scl_cntr == (prescale - prescale_half - 'h2))
               begin
                 strob_tick <= !strob_tick;
               end
@@ -120,7 +123,7 @@ module i2c_master #
           begin
             scl_cntr <= 'h0;
           end
-        else
+        else if (fsm_state != IDLE_STATE)
           begin
             scl_cntr <= scl_cntr + 'h1;
           end
@@ -156,15 +159,20 @@ module i2c_master #
 
   //2
   always_comb
+    begin
     next_state = fsm_state;
 
     case (fsm_state)
       IDLE_STATE:
         begin
            if (en_i == 1'b1)
-             next_state = START_STATE;
+             next_state = START_1_STATE;
         end
-      START_STATE:
+      START_1_STATE:
+        if (scl_cntr == (prescale_half - 1))
+          next_state = START_2_STATE;
+
+      START_2_STATE:
         if (scl_strob == 1'h1)
           next_state = ADDR_STATE;
       
@@ -176,27 +184,32 @@ module i2c_master #
       DIR_STATE:
         if (scl_strob == 1'h1)  
           if (dir == 'h0)
-            next_state = READ_STATE;
-          else
             next_state = WRITE_STATE;
+          else
+            next_state = READ_STATE;
       
       WRITE_STATE:
          if (scl_strob == 1'h1)
           if (bit_counter == 'h7)
-             next_state = STOP_STATE;
+             next_state = STOP_1_STATE;
 
       READ_STATE:
          if (scl_strob == 1'h1)
            if (bit_counter == 'h7)
-             next_state = STOP_STATE;
+             next_state = STOP_1_STATE;
 
       //todo:
-      STOP_STATE:
-             next_state = STOP_STATE;
+      STOP_1_STATE:
+         if (scl_cntr == (prescale_half - 1))
+             next_state = STOP_2_STATE;
+
+      STOP_2_STATE: if (scl_strob == 1'h1) next_state = STOP_2_STATE;
+
       default:
         next_state = fsm_state; 
 
     endcase
+  end
 
 
   always_ff @(posedge clk_i)
@@ -218,10 +231,12 @@ module i2c_master #
   begin
    if (s_rst_n_i == 1'b0)
       bit_counter <= 'h0;
-    else if ((fsm_state == START_STATE) || (fsm_state == DIR_STATE))
+    else if ((fsm_state == ADDR_STATE) || (fsm_state == WRITE_STATE))
       begin
+        if (scl_strob == 1'h1)
         bit_counter <= bit_counter + 'h1;
       end
+    else if ((fsm_state == START_2_STATE) || (fsm_state == DIR_STATE)) bit_counter <= '0;
   end
 
 
@@ -230,8 +245,9 @@ module i2c_master #
    if (s_rst_n_i == 1'b0)
       slave_addr <= 'h0;
     else if (en_i == 1'b1) 
-      slave_addr    <= slave_addr_i;
-    else if ((fsm_state == ADDR_STATE) && (scl_strob == 1'h1))
+      if (fsm_state == START_1_STATE)
+        slave_addr    <= slave_addr_i;
+      else if ((fsm_state == ADDR_STATE) && (scl_strob == 1'h1))
       begin
         slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0};
       end
@@ -242,10 +258,11 @@ module i2c_master #
    if (s_rst_n_i == 1'b0)
       sent_data <= 'h0;
     else if (en_i == 1'b1) 
-      sent_data     <= data_i;
-    else if ((fsm_state == WRITE_STATE) && (scl_strob == 1'h1))
+      if (fsm_state == START_1_STATE)
+        sent_data     <= data_i;
+      else if ((fsm_state == WRITE_STATE) && (scl_strob == 1'h1))
       begin
-        sent_data  <= {sent_data[ADDR_WIDTH - 2 : 0], 1'h0};
+        sent_data  <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
       end
   end
 
@@ -257,7 +274,7 @@ module i2c_master #
       recv_data     <= '0;
     else if ((fsm_state == READ_STATE) && (scl_strob == 1'h1))
       begin
-        recv_data <= {recv_data[ADDR_WIDTH - 2 : 0], sda_i};
+        recv_data <= {recv_data[DATA_WIDTH - 2 : 0], sda_i};
       end
   end
 
@@ -273,9 +290,9 @@ module i2c_master #
                 sda = 'h1;
               end
               
-            START_STATE:
+            START_1_STATE:
               begin
-                if (scl_cntr == (prescale_half - 1))
+                if (scl_cntr > (prescale_half - 1))
                   begin
                     sda = 'h0;
                   end
@@ -293,7 +310,14 @@ module i2c_master #
                 //    slave_addr  <= {slave_addr[ADDR_WIDTH - 2 : 0], 1'h0}; //sep
                 //  end
               end
-              
+
+          START_2_STATE:
+              begin
+               
+                    sda = 'h0;
+     
+                end
+
             ADDR_STATE:
               begin
               ///  if (scl_strob == 1'h1)
@@ -318,7 +342,7 @@ module i2c_master #
              ///     begin
 
                   //      sent_data <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
-                        sda <= dir;
+                        sda = dir;
               ///    end
               end
                   
@@ -327,7 +351,7 @@ module i2c_master #
                  /// if (scl_strob == 1'h1) 
                  ///   begin
                    //   sent_data   <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
-                      sda         <= sent_data[7];
+                      sda         = sent_data[7];
                       
                    //   bit_counter <= bit_counter + 'h1;
                       
@@ -355,10 +379,12 @@ module i2c_master #
                     //     end
                     // end
                 end
+
+              STOP_1_STATE: sda = 'h0;
                 
-              STOP_STATE:
+              STOP_2_STATE:
                 begin
-                  if (scl_cntr == (prescale_half - 1))
+                  if (scl_cntr > (prescale_half - 1))
                     begin
                       sda = 'h1;
                     end
@@ -371,7 +397,6 @@ module i2c_master #
                   sda = 1'h1;
                 end
           endcase
-        end
     end 
 
     always_comb 
