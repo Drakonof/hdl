@@ -9,6 +9,7 @@ SRC_DIR=../../rtl
 DUT=rom
 TOPLEVEL=$(DUT)
 MODULE=$(DUT)_tb
+
 VERILOG_SOURCES+=$(SRC_DIR)/$(DUT).sv
 
 DATA_WIDTH?=8

@@ -1,4 +1,4 @@
-`include "platform.vh"
+//`include "./platform.vh"
 
 module rom #
 (
