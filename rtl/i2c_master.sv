@@ -1,5 +1,7 @@
-//todo: ack, status, repstart, read, myltibytes pack for read and write, arbitration lost, tri state buffer control, self_addr, ready, platform and preprocessor, timeout
+//todo:  status, repstart, read + myltibytes pack for read, arbitration lost, self_addr, ready, timeout
 //todo: resorses and power and timing optimization
+
+//`include "platform.vh"
 
 `timescale 1ns / 1ps
 
@@ -450,10 +452,12 @@ module i2c_master #
       status_o = status;
     end
 
+`ifndef XILINX
   initial 
     begin
       $dumpfile("dump.vcd");
       $dumpvars(1, i2c_master);
     end
+`endif
 
 endmodule
