@@ -3,7 +3,6 @@
 
 `timescale 1ns / 1ps
 
-
 module i2c_master #
 (
   parameter unsigned PRESC_WIDTH = 16,
@@ -22,20 +21,20 @@ module i2c_master #
   input  logic [DATA_WIDTH - 1 : 0]  data_i,
 
   input  logic [ADDR_WIDTH - 1 : 0]  slave_addr_i,
-  input  logic dir_i,
+  input  logic                       dir_i,
 
   input  logic                       stop_i, // maybe make it to ctrl bus width of eight?
   input  logic                       write_i,// 
 
-  output logic [DATA_WIDTH - 1 : 0]  status_o, // |r|r|r|r|r|addr sent|end of read|end of write|
+  output logic [DATA_WIDTH - 1 : 0]  status_o, // |r|r|r|r|r|addr sent|end of read|end of write| - not implemented yet
 
   output logic                       scl_o, 
-  //todo: input  logic                      scl_i,
-  //todo: output logic                      scl_t,
+  input  logic                       scl_i,
+  output logic                       scl_t,
   
   output logic                       sda_o,
-  input  logic                       sda_i
-  //todo: output logic                      sda_t
+  input  logic                       sda_i,
+  output logic                       sda_t
 );
 
 
@@ -443,7 +442,10 @@ module i2c_master #
   always_comb
     begin
       scl_o = scl;
+      scl_t = 'h0;
+
       sda_o = sda;
+      sda_t = (fsm_state == ADDR_STATE) ? 'h0 : dir;
 
       status_o = status;
     end
