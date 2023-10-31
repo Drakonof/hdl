@@ -444,6 +444,8 @@ module i2c_master #
     begin
       scl_o = scl;
       sda_o = sda;
+
+      status_o = status;
     end
 
   initial 
