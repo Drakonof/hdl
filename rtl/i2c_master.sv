@@ -1,4 +1,4 @@
-//todo: ack, status, repstart, read, myltibytes pack for read and write, arbitration lost, tri state buffer control, self_addr, ready, platform and preprocessor
+//todo: ack, status, repstart, read, myltibytes pack for read and write, arbitration lost, tri state buffer control, self_addr, ready, platform and preprocessor, timeout
 //todo: resorses and power and timing optimization
 
 `timescale 1ns / 1ps
@@ -13,25 +13,29 @@ module i2c_master #
   localparam unsigned DATA_BIT_NUM = $clog2(DATA_WIDTH)
 )
 (
-  input logic clk_i,
-  input logic s_rst_n_i,
+  input  logic                       clk_i,
+  input  logic                       s_rst_n_i,
   
-  input logic en_i,
-  //todo: output logic ready_o, 
+  input  logic                       en_i,
   
-  input logic [PRESC_WIDTH - 1 : 0] prescale_i,
-  input logic [DATA_WIDTH - 1 : 0] data_i,
-  //todo: input logic [ADDR_WIDTH - 1 : 0] self_addr_i, 
-  input logic [ADDR_WIDTH - 1 : 0] slave_addr_i,
-  input logic dir_i,
+  input  logic [PRESC_WIDTH - 1 : 0] prescale_i,
+  input  logic [DATA_WIDTH - 1 : 0]  data_i,
 
-  output logic scl_o, 
-  //todo: input logic scl_i,
-  //todo: output logic scl_t,
+  input  logic [ADDR_WIDTH - 1 : 0]  slave_addr_i,
+  input  logic dir_i,
+
+  input  logic                       stop_i, // maybe make it to ctrl bus width of eight?
+  input  logic                       write_i,// 
+
+  output logic [DATA_WIDTH - 1 : 0]  status_o, // |r|r|r|r|r|addr sent|end of read|end of write|
+
+  output logic                       scl_o, 
+  //todo: input  logic                      scl_i,
+  //todo: output logic                      scl_t,
   
-  output logic sda_o,
-  input  logic sda_i
-  //todo: output logic sda_t
+  output logic                       sda_o,
+  input  logic                       sda_i
+  //todo: output logic                      sda_t
 );
 
 
@@ -46,8 +50,8 @@ module i2c_master #
     REP_START_STATE,
     ADDR_STATE,
     DIR_STATE,
-    WRITE_STATE,
-    READ_STATE,
+    SEND_DATA_STATE,
+    RECV_DATA_STATE,
     RECV_ACK_STATE,
     SEND_ACK_STATE,
     STOP_1_STATE,
@@ -73,6 +77,8 @@ module i2c_master #
 
   logic                        scl_strob;
   logic                        scl_strob_d;
+
+  logic [DATA_WIDTH - 1 : 0]   status;
 
   
   fsm_state_t fsm_state;
@@ -168,7 +174,7 @@ module i2c_master #
         begin
           bit_counter <= 'h0;
         end
-      else if ((fsm_state == ADDR_STATE) || (fsm_state == WRITE_STATE))
+      else if ((fsm_state == ADDR_STATE) || (fsm_state == SEND_DATA_STATE))
         begin
           if (scl_strob == 1'h1)
             begin
@@ -208,7 +214,7 @@ module i2c_master #
         begin
           sent_data <= data_i;
         end
-      else if ((fsm_state == WRITE_STATE) && (scl_strob == 1'h1))
+      else if ((fsm_state == SEND_DATA_STATE) && (scl_strob == 1'h1))
         begin
           sent_data <= {sent_data[DATA_WIDTH - 2 : 0], 1'h0};
         end
@@ -224,7 +230,7 @@ module i2c_master #
         begin
           recv_data     <= '0;
         end
-      else if ((fsm_state == READ_STATE) && (scl_strob == 1'h1))
+      else if ((fsm_state == RECV_DATA_STATE) && (scl_strob == 1'h1))
         begin
           recv_data <= {recv_data[DATA_WIDTH - 2 : 0], sda_i};
         end
@@ -286,18 +292,22 @@ module i2c_master #
         begin
           if (scl_strob == 1'h1)
             begin
-              if (dir == 'h0)
-                begin
-                  next_state = WRITE_STATE;
-                end
-              else
-                begin
-                  next_state = READ_STATE;
-                end
+              next_state = RECV_ACK_STATE;
             end
         end
       
-      WRITE_STATE:
+      SEND_DATA_STATE:
+        begin
+          if (scl_strob == 1'h1)
+            begin
+              if (bit_counter == 'h7)
+                begin
+                  next_state = RECV_ACK_STATE;
+                end
+            end
+        end
+
+      RECV_DATA_STATE:
         begin
           if (scl_strob == 1'h1)
             begin
@@ -308,13 +318,24 @@ module i2c_master #
             end
         end
 
-      READ_STATE:
+      RECV_ACK_STATE:
         begin
-          if (scl_strob == 1'h1)
+          if ((scl_strob == 1'h1) && (sda_i == 1'h0))
             begin
-              if (bit_counter == 'h7)
+              if (stop_i == 1'h1)
                 begin
                   next_state = STOP_1_STATE;
+                end
+              else if (write_i == 1'h1)
+                begin
+                  if (dir == 'h0)
+                    begin
+                      next_state = SEND_DATA_STATE;
+                    end
+                  else
+                    begin
+                      next_state = RECV_DATA_STATE;
+                    end
                 end
             end
         end
@@ -380,12 +401,12 @@ module i2c_master #
           sda = dir;
         end
                   
-      WRITE_STATE:
+      SEND_DATA_STATE:
         begin
           sda = sent_data[7];         
          end
 
-      READ_STATE:
+      RECV_DATA_STATE:
         begin
         end
 
