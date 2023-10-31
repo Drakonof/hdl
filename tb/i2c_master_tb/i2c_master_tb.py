@@ -21,6 +21,11 @@ class I2c_master_tb(object):
     async def start(self):
         self.dut.en_i = 1
         self.dut.prescale_i = 8
+        self.dut.sda_i = 0
+        self.dut.stop_i = 0
+
+    async def stop(self):
+        self.dut.stop_i = 1
 
     async def send_addr(self, addr, rw):
         self.dut.slave_addr_i = addr
@@ -28,6 +33,7 @@ class I2c_master_tb(object):
 
     async def send_data(self, data):
         self.dut.data_i = data
+        self.dut.write_i = 1
 
     async def check_start(self, rnge):
         for addr in range(rnge):
@@ -43,7 +49,9 @@ async def main(dut):
     await tb.send_addr(0x58, 0)
     await tb.send_data(0x64)
     await tb.clock_tick()
-    await tb.check_start(800)
+    await tb.check_start(600)
+    await tb.stop()
+    await tb.check_start(200)
 
 
 if __name__ == "__main__":
