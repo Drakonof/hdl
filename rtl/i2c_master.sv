@@ -25,8 +25,8 @@ module i2c_master #
   input  logic [ADDR_WIDTH - 1 : 0]  slave_addr_i,
   input  logic                       dir_i,
 
-  input  logic                       stop_i, // maybe make it to ctrl bus width of eight?
-  input  logic                       write_i,// 
+  input  logic                       stop_i,   // maybe make it to ctrl bus width of eight?
+  input  logic                       write_i,  // 
 
   output logic [DATA_WIDTH - 1 : 0]  status_o, // |r|r|r|r|r|addr sent|end of read|end of write| - not implemented yet
 
@@ -80,6 +80,10 @@ module i2c_master #
   logic                        scl_strob_d;
 
   logic [DATA_WIDTH - 1 : 0]   status;
+  logic                        send_status;
+  logic                        send_status_d;
+  logic                        send_status_strob;
+  logic                        recv_status;
 
   
   fsm_state_t fsm_state;
@@ -155,7 +159,20 @@ module i2c_master #
     begin
       if (s_rst_n_i == 1'b0)
         begin
+          send_status_d <= '0;
+        end
+      else
+        begin
+          send_status_d <= send_status;
+        end
+    end
+
+  always_ff @(posedge clk_i)
+    begin
+      if (s_rst_n_i == 1'b0)
+        begin
           dir           <= '0;
+          status        <= '0;
 
           prescale      <= '0;
           prescale_half <= '0;
@@ -164,9 +181,15 @@ module i2c_master #
         begin
           dir           <= dir_i;
 
+          status        <= '0;
+
           prescale      <= prescale_i;
           prescale_half <= {1'h0, prescale_i[PRESC_WIDTH - 1 : 1]};
-      end
+        end
+      else
+        begin
+          status = {'0, send_status_strob};
+        end
   end
 
   always_ff @(posedge clk_i)
@@ -211,7 +234,7 @@ module i2c_master #
         begin
           sent_data <= 'h0;
         end
-      else if (fsm_state == START_1_STATE)
+      else if ((fsm_state == START_1_STATE) || (fsm_state == RECV_ACK_STATE)) //maybe issues with recv
         begin
           sent_data <= data_i;
         end
@@ -373,10 +396,13 @@ module i2c_master #
       IDLE_STATE:
         begin
           sda = 'h1;
+          send_status = 'h0;
         end
               
       START_1_STATE:
         begin
+          send_status = 'h0;
+
           if (scl_cntr > (prescale_half - 1))
             begin
               sda = 'h0;
@@ -389,35 +415,44 @@ module i2c_master #
 
       START_2_STATE:
         begin
+          send_status = 'h0;
           sda = 'h0;
         end
 
       ADDR_STATE:
         begin
+          send_status = 'h0;
           sda = slave_addr[6];
         end
 
       DIR_STATE:
         begin
-          sda = dir;
+          send_status = 'h0;
+          sda         = dir;
         end
                   
       SEND_DATA_STATE:
         begin
-          sda = sent_data[7];         
-         end
+          sda         = sent_data[7];
+          send_status = 'h1;         
+        end
 
       RECV_DATA_STATE:
         begin
+          send_status = 'h0;
+          recv_status = 'h1;
         end
 
       STOP_1_STATE:
         begin
+          send_status = 'h0;
           sda = 'h0;
         end
                 
       STOP_2_STATE:
         begin
+          send_status = 'h0;
+
           if (scl_cntr > (prescale_half - 1))
             begin
               sda = 'h1;
@@ -430,6 +465,7 @@ module i2c_master #
 
       default:
         begin
+          send_status = 'h0;
           sda = 1'h1;
         end
 
@@ -439,6 +475,7 @@ module i2c_master #
   always_comb 
     begin
       scl_strob = ~strob_tick && scl_strob_d;
+      send_status_strob = ~send_status && send_status_d;
     end
     
   always_comb
