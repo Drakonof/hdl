@@ -35,6 +35,11 @@ class I2c_master_tb(object):
         self.dut.data_i = data
         self.dut.write_i = 1
 
+        while True:
+            await RisingEdge(self.dut.clk_i)
+            if self.dut.status_o == 1:
+                break
+
     async def check_start(self, rnge):
         for addr in range(rnge):
             await RisingEdge(self.dut.clk_i)
@@ -48,8 +53,9 @@ async def main(dut):
     await tb.start()
     await tb.send_addr(0x58, 0)
     await tb.send_data(0x64)
-    await tb.clock_tick()
-    await tb.check_start(600)
+    await tb.send_data(0x65)
+    await tb.send_data(0x66)
+    await tb.send_data(0x67)
     await tb.stop()
     await tb.check_start(200)
 
