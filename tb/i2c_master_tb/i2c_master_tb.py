@@ -14,30 +14,30 @@ class I2c_master_tb(object):
         await RisingEdge(self.dut.clk_i)
         
     async def reset(self):
-        self.dut.s_rst_n_i = 0
+        self.dut.s_rst_n_i.value = 0
         await RisingEdge(self.dut.clk_i)
-        self.dut.s_rst_n_i = 1
+        self.dut.s_rst_n_i.value = 1
 
     async def start(self):
-        self.dut.en_i = 1
-        self.dut.prescale_i = 8
-        self.dut.sda_i = 0
-        self.dut.stop_i = 0
+        self.dut.en_i.value = 1
+        self.dut.prescale_i.value = 8
+        self.dut.sda_i.value = 0
+        self.dut.stop_i.value = 0
 
     async def stop(self):
-        self.dut.stop_i = 1
+        self.dut.stop_i.value = 1
 
     async def send_addr(self, addr, rw):
-        self.dut.slave_addr_i = addr
-        self.dut.dir_i = rw
+        self.dut.slave_addr_i.value = addr
+        self.dut.dir_i.value = rw
 
     async def send_data(self, data):
-        self.dut.data_i = data
-        self.dut.write_i = 1
+        self.dut.data_i.value = data
+        self.dut.write_i.value = 1
 
         while True:
             await RisingEdge(self.dut.clk_i)
-            if self.dut.status_o == 1:
+            if self.dut.status_o.value == 1:
                 break
 
     async def check_start(self, rnge):
