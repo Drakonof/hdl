@@ -29,14 +29,23 @@ module rom #
 
   initial 
     begin
-      if (INIT_FILE != "")
+
+`ifdef XILINX
+      assert ((RAM_TYPE == "distributed") && (RAM_TYPE == "block"))
+      else
+        begin
+          $fatal(1, "wrong ram_style");
+        end
+`endif
+
+      assert (INIT_FILE != "")
         begin
           $display("loading rom");
           $readmemh(INIT_FILE, rom_mem);
         end
       else
         begin
-          $error("init file is needed");
+          $fatal(1, "init file is needed");
         end
     end
 
