@@ -27,19 +27,22 @@ single_port_ram_inst
 );
 */
 
-//todo: assert, reset?
+//`include "platform.vh"
 
 `timescale 1ns / 1ps
 
 module single_port_ram #
 (
-  parameter integer DATA_WIDTH     = 8,
-  parameter integer ADDR_WIDTH     = 8,
+  parameter unsigned DATA_WIDTH    = 8,
+  parameter unsigned ADDR_WIDTH    = 8,
 
-  parameter   IS_OUT_LATENCY = "true",  //"true", "false"
+  parameter         IS_OUT_LATENCY = "false",  //"true", "false"
 
-  parameter   RAM_TYPE       = "block", // "distributed", "block"
-  parameter   INIT_FILE_NAME = "", 
+`ifdef XILINX
+  parameter          RAM_TYPE       = "block", // "distributed", "block"
+`endif
+
+  parameter          INIT_FILE      = "/home/artem/workspace/H/hdl/tb/single_port_ram_tb/ram_init.mem", 
 
   localparam integer BYTE_VALID_WIDTH = DATA_WIDTH / 8,
   localparam integer MEM_DEPTH        = 2 ** ADDR_WIDTH
@@ -48,6 +51,7 @@ module single_port_ram #
   input  logic                            clk_i,
 
   input  logic                            wr_en_i,
+
   input  logic [DATA_WIDTH - 1 : 0]       data_i,
   input  logic [BYTE_VALID_WIDTH - 1 : 0] byte_valid_i,
   input  logic [ADDR_WIDTH - 1 : 0]       addr_i,
@@ -55,19 +59,33 @@ module single_port_ram #
   output logic [DATA_WIDTH - 1 : 0]       data_o
 );
 
-  (*ram_style = RAM_TYPE*) 
+`ifdef XILINX
+  (*ram_style = RAM_TYPE*)
+`endif
   logic [DATA_WIDTH - 1 : 0] mem [0 : MEM_DEPTH - 1];
   logic [DATA_WIDTH - 1 : 0] rd_data;
 
-  generate
-    if (INIT_FILE_NAME != "") 
-      begin: init_file
-        initial 
-          begin
-            $readmemh(INIT_FILE_NAME, mem, 0, MEM_DEPTH - 1);
-          end
-      end 
-  endgenerate
+  initial 
+    begin
+
+`ifdef XILINX
+      assert ((RAM_TYPE == "distributed") && (RAM_TYPE == "block"))
+      else
+        begin
+          $fatal(1, "wrong ram_style");
+        end
+`endif
+
+      assert (INIT_FILE != "")
+        begin
+          $display("loading rom");
+          $readmemh(INIT_FILE, mem);
+        end
+      else
+        begin
+          $fatal(2, "init file is needed");
+        end
+    end
 
   always_ff @(posedge clk_i) 
     begin  
@@ -101,5 +119,14 @@ module single_port_ram #
           end
       end
   endgenerate
+
+  
+`ifndef XILINX
+  initial begin
+    $dumpfile("dump.vcd");
+    $dumpvars(1, single_port_ram);
+  end
+`endif
+
 
 endmodule
