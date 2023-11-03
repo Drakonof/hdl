@@ -1,0 +1,5 @@
+*.vcd
+*.vcd.pdf
+__pycache__/
+*.xml
+sim_build/
