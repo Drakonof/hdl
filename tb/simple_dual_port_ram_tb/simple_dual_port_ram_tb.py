@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
 import random
-#import threading
 
 import cocotb
+from cocotb.triggers import Timer
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
+
 
 
 class Tb(object):
@@ -73,15 +74,14 @@ async def main(dut):
     await tb.write_rand(0xABCD, 1)
     await tb.read_whole()
 
-    # cocotb.log.info(f"Starting threads...")
+    cocotb.log.info(f"Starting threads...")
 
-    # write_thread = threading.Thread(target=cocotb.scheduler.run, args=(tb.write_whole(5, 3),))
-    # read_thread = threading.Thread(target=cocotb.scheduler.run, args=(tb.read_whole(),))
+    await cocotb.start_soon(tb.write_whole(0xA, 3))
+    await cocotb.start_soon(tb.read_whole())
 
-    # write_thread.start()
-    # read_thread.start()
+    await Timer(10, units='ns')
 
     cocotb.log.info("End of simulation")
         
 if __name__ == "__main__":
-    sys.exit(main())
+    cocotb.run()
