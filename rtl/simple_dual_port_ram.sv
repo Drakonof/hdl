@@ -22,7 +22,6 @@ simple_dual_port_ram_inst
 
   .rd_en_i         (),
   .rd_data_o       (), // width: DATA_WIDTH
-  .rd_data_valid_o (),
   .rd_addr_i       ()  // width: DATA_WIDTH
 );
 */
@@ -31,13 +30,16 @@ simple_dual_port_ram_inst
 
 module simple_dual_port_ram #
 (
-  parameter integer DATA_WIDTH     = 8,
-  parameter integer ADDR_WIDTH     = 8,
+  parameter unsigned DATA_WIDTH     = 8,
+  parameter unsigned ADDR_WIDTH     = 8,
 
-  parameter   IS_OUT_LATENCY = "true",  //"true", "false"
+  parameter          IS_OUT_LATENCY = "false",  //"true", "false"
 
-  parameter   RAM_TYPE       = "block", // "distributed", "block"
-  parameter   INIT_FILE_NAME = "", 
+`ifdef XILINX
+  parameter          RAM_TYPE       = "block", // "distributed", "block"
+`endif
+
+  parameter          INIT_FILE      = "/home/artem/H/hdl/tb/simple_dual_port_ram_tb/ram_init.mem", 
 
   localparam integer BYTE_VALID_WIDTH = DATA_WIDTH / 8,
   localparam integer MEM_DEPTH        = 2 ** ADDR_WIDTH
@@ -54,24 +56,36 @@ module simple_dual_port_ram #
 
   input  logic                            rd_en_i,
   output logic [DATA_WIDTH - 1 : 0]       rd_data_o,
-  output logic                            rd_data_valid_o,
   input  logic [ADDR_WIDTH - 1 : 0]       rd_addr_i
 );
 
-  (*ram_style = RAM_TYPE*) 
+`ifdef XILINX
+  (*ram_style = RAM_TYPE*)
+`endif
   logic [DATA_WIDTH - 1 : 0] mem           [0 : MEM_DEPTH - 1];
   logic [DATA_WIDTH - 1 : 0] rd_data;
-  logic                      rd_data_valid;
 
-  generate
-    if (INIT_FILE_NAME != "") 
-      begin: init_file
-        initial 
-          begin
-            $readmemh(INIT_FILE_NAME, mem, 0, MEM_DEPTH - 1);
-          end
-      end 
-  endgenerate
+  initial 
+    begin
+
+`ifdef XILINX
+      assert ((RAM_TYPE == "distributed") && (RAM_TYPE == "block"))
+      else
+        begin
+          $fatal(1, "wrong ram_style");
+        end
+`endif
+
+      assert (INIT_FILE != "")
+        begin
+          $display("loading ram");
+          $readmemh(INIT_FILE, mem);
+        end
+      else
+        begin
+          $fatal(1, "init file is needed");
+        end
+    end
 
   always_ff @(posedge wr_clk_i) 
     begin  
@@ -93,8 +107,6 @@ module simple_dual_port_ram #
         begin 
           rd_data <= mem[rd_addr_i];
         end
-
-        rd_data_valid <= rd_en_i;
     end
 
   generate 
@@ -106,8 +118,6 @@ module simple_dual_port_ram #
               begin 
                 rd_data_o <= rd_data;
               end
-
-              rd_data_valid_o <= rd_data_valid;
           end
       end
     else 
@@ -115,10 +125,17 @@ module simple_dual_port_ram #
         always_comb
           begin
             rd_data_o       = rd_data;
-
-            rd_data_valid_o = rd_data_valid;
           end
       end
   endgenerate
+
+
+`ifndef XILINX
+  initial begin
+    $dumpfile("dump.vcd");
+    $dumpvars(1, simple_dual_port_ram);
+  end
+`endif
+
 
 endmodule
