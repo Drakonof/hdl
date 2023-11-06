@@ -78,12 +78,12 @@ module single_port_ram #
 
       assert (INIT_FILE != "")
         begin
-          $display("loading rom");
+          $display("loading ram");
           $readmemh(INIT_FILE, mem);
         end
       else
         begin
-          $fatal(2, "init file is needed");
+          $fatal(1, "init file is needed");
         end
     end
 
