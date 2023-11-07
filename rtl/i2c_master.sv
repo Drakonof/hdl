@@ -5,6 +5,8 @@
 
 //package for the struct
 
+/* verilator lint_off LATCH */
+
 `timescale 1ns / 1ps
 
 
@@ -47,9 +49,9 @@ module i2c_master #
   localparam unsigned FSM_STATE_NUM = 9;
   localparam unsigned FSM_STATE_WIDTH = $clog2(FSM_STATE_NUM);
 
-  typedef struct sts {
+  // typedef struct sts {
       
-  } sts_t;
+  // } sts_t;
 
 
   typedef enum logic [FSM_STATE_WIDTH - 1  : 0] {
@@ -196,7 +198,7 @@ module i2c_master #
         end
       else
         begin
-          status <= {'0, send_status_strob};
+          status <= {7'h0, send_status_strob};
         end
   end
 

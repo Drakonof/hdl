@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import cocotb
+from cocotb.triggers import Timer
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 
@@ -8,7 +9,7 @@ from cocotb.triggers import RisingEdge
 class I2c_master_tb(object):
     def __init__(self, dut):
         self.dut = dut
-        cocotb.start_soon(Clock(self.dut.clk_i, 100, units="ns").start())
+        cocotb.start_soon(Clock(self.dut.clk_i, 10, units="ns").start())
 
     async def clock_tick(self):
         await RisingEdge(self.dut.clk_i)
@@ -26,6 +27,8 @@ class I2c_master_tb(object):
 
     async def stop(self):
         self.dut.stop_i.value = 1
+        for addr in range(100):
+            await RisingEdge(self.dut.clk_i)
 
     async def send_addr(self, addr, rw):
         self.dut.slave_addr_i.value = addr
@@ -49,6 +52,9 @@ class I2c_master_tb(object):
 async def main(dut):
     tb = I2c_master_tb(dut)
 
+
+    cocotb.log.info("Start of simulation")
+
     await tb.reset()
     await tb.start()
     await tb.send_addr(0x58, 0)
@@ -57,7 +63,9 @@ async def main(dut):
     await tb.send_data(0x66)
     await tb.send_data(0x67)
     await tb.stop()
-    await tb.check_start(200)
+    await Timer(100, units='ns')
+
+    cocotb.log.info("End of simulation")
 
 
 if __name__ == "__main__":

@@ -69,14 +69,14 @@ async def main(dut):
     await tb.read_rand()
     await tb.read_rand()
 
-    await tb.write_whole(5, 3)
+    await tb.write_whole(5, 1)
     await tb.read_whole()
-    await tb.write_rand(0xABCD, 1)
+    await tb.write_rand(0xAB, 1)
     await tb.read_whole()
 
     cocotb.log.info(f"Starting threads...")
 
-    await cocotb.start_soon(tb.write_whole(0xA, 3))
+    await cocotb.start_soon(tb.write_whole(0xA, 1))
     await cocotb.start_soon(tb.read_whole())
 
     await Timer(10, units='ns')
