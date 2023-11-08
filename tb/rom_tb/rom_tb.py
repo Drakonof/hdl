@@ -5,6 +5,8 @@ import random
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
+from cocotb.runner import get_runner
+import os
 
 
 class Rom_tb(object):
@@ -41,6 +43,7 @@ async def main(dut):
     await tb.read_rand_addr(max_rand_val)
 
     cocotb.log.info("End of simulation")
+
         
 if __name__ == "__main__":
     sys.exit(main())
