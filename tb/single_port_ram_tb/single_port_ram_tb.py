@@ -40,7 +40,7 @@ class Tb(object):
         self.dut.wr_en_i.value = 1
         self.dut.byte_valid_i.value = byte_valid
         rand_addr = random.randint(0, self.max_rand_val)
-        cocotb.log.info(f"Random address to write: {rand_addr}  Data: {data}")
+        cocotb.log.info(f"Random address to write: {rand_addr}  Data: {bin(data)} Bytevalid: {byte_valid}")
         await self.write(rand_addr, data)
 
     #todo: compare with file content 
