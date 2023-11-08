@@ -84,9 +84,4 @@ module random_state_generator #
         end
     end
 
-  initial 
-    begin
-      dumpfile("dump.vcd");
-      $dumpvars(1, random_state_generator);
-    end
 endmodule
