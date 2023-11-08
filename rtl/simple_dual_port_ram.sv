@@ -39,7 +39,7 @@ module simple_dual_port_ram #
   parameter          RAM_TYPE       = "block", // "distributed", "block"
 `endif
 
-  parameter          INIT_FILE      = "/home/artem/H/hdl/tb/simple_dual_port_ram_tb/ram_init.mem", 
+  parameter          INIT_FILE      = "", 
 
   localparam integer BYTE_VALID_WIDTH = DATA_WIDTH / 8,
   localparam integer MEM_DEPTH        = 2 ** ADDR_WIDTH
@@ -69,14 +69,13 @@ module simple_dual_port_ram #
     begin
 
 `ifdef XILINX
-      assert ((RAM_TYPE == "distributed") && (RAM_TYPE == "block"))
-      else
+      if ((RAM_TYPE != "distributed") || (RAM_TYPE != "block"))
         begin
           $fatal(1, "wrong ram_style");
         end
 `endif
 
-      assert (INIT_FILE != "")
+      if (INIT_FILE != "")
         begin
           $display("loading ram");
           $readmemh(INIT_FILE, mem);
@@ -85,6 +84,7 @@ module simple_dual_port_ram #
         begin
           $fatal(1, "init file is needed");
         end
+
     end
 
   always_ff @(posedge wr_clk_i) 
@@ -128,14 +128,5 @@ module simple_dual_port_ram #
           end
       end
   endgenerate
-
-
-`ifndef XILINX
-  initial begin
-    $dumpfile("dump.vcd");
-    $dumpvars(1, simple_dual_port_ram);
-  end
-`endif
-
 
 endmodule
