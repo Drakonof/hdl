@@ -120,13 +120,4 @@ module single_port_ram #
       end
   endgenerate
 
-  
-`ifndef XILINX
-  initial begin
-    $dumpfile("dump.vcd");
-    $dumpvars(1, single_port_ram);
-  end
-`endif
-
-
 endmodule
