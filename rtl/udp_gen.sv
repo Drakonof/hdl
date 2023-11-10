@@ -36,9 +36,7 @@ module udp_gen #
   input  logic [UDP_PORT_WIDTH - 1 : 0] src_udp_port_i, // format???
   input  logic [UDP_PORT_WIDTH - 1 : 0] dst_udp_port_i,
   
-  output logic [DATA_WIDTH - 1 : 0]     data_o,
-  output logic                          data_valid_o,       
-  output logic                          frame_end_o
+  udp_gen_inf data_inf
 );
  
   localparam unsigned                MIN_DATA_SIZE   = 64;   // 46 bytes payload
@@ -202,72 +200,72 @@ module udp_gen #
       
       IDLE_STATE:
         begin
-          data_valid_o = '0;
-          frame_end_o  = '0;
+          data_inf.data_valid = '0;
+          data_inf.frame_end  = '0;
 
-          data_o       = '0;
+          data_inf.data       = '0;
         end
         
       MAC_1_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o       = {dst_mac_addr, MAC_ADDR[15 : 0]}; // signal racing?
+          data_inf.data       = {dst_mac_addr, MAC_ADDR[15 : 0]}; // signal racing?
         end
         
       MAC_2_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o       = {MAC_ADDR[47 : 16], LT, 16'haaaa}; //todo: ip Vertion, IHL, DSCP, ECN
+          data_inf.data       = {MAC_ADDR[47 : 16], LT, 16'haaaa}; //todo: ip Vertion, IHL, DSCP, ECN
         end
         
       IP_1_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o  = {16'hbbbb, 16'hcccc, 16'hdddd, 8'hee, 8'hff}; //todo: ip total lenght, identification, flag + fragment offset, time to live, protocol
+          data_inf.data  = {16'hbbbb, 16'hcccc, 16'hdddd, 8'hee, 8'hff}; //todo: ip total lenght, identification, flag + fragment offset, time to live, protocol
         end
         
       IP_2_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o  = {16'h1111, src_ipv4_addr, dst_ipv4_addr[15 : 0]}; //todo: header checksum, src ip, dst ip [15:0]
+          data_inf.data  = {16'h1111, src_ipv4_addr, dst_ipv4_addr[15 : 0]}; //todo: header checksum, src ip, dst ip [15:0]
         end
         
       UDP_1_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o       = {dst_ipv4_addr[31 : 16], src_udp_port, dst_udp_port, COUNTER_MAX_VAL}; //todo: dst ip [31:16], src port, dst port lengh !! 16'h8 + COUNTER_MAX_VAL
+          data_inf.data       = {dst_ipv4_addr[31 : 16], src_udp_port, dst_udp_port, COUNTER_MAX_VAL}; //todo: dst ip [31:16], src port, dst port lengh !! 16'h8 + COUNTER_MAX_VAL
         end
         
       DATA_1_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = '0;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = '0;
           
-          data_o  = {48'h0, counter}; //  !'0
+          data_inf.data  = {48'h0, counter}; //  !'0
         end
         
       DATA_2_STATE:
         begin
-          data_valid_o = 'h1;
-          frame_end_o  = 'h1;
+          data_inf.data_valid = 'h1;
+          data_inf.frame_end  = 'h1;
           
-          data_o       = {48'h0, counter}; //  !'0
+          data_inf.data       = {48'h0, counter}; //  !'0
         end
         
       default:
         begin
-          data_valid_o = '0;
-          frame_end_o  = '0;
+          data_inf.data_valid = '0;
+          data_inf.frame_end  = '0;
         end
         
       endcase
