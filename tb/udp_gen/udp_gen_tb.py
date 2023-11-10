@@ -11,27 +11,27 @@ from cocotb.triggers import Timer
 class Tb(object):
     def __init__(self, dut):
         self.dut = dut
-        cocotb.start_soon(Clock(self.dut.clk_i, 10, units="ns").start())
+        cocotb.start_soon(Clock(self.dut.clk, 10, units="ns").start())
 
     async def reset(self):
-        self.dut.s_rst_n_i.value = 0
-        await RisingEdge(self.dut.clk_i)
-        self.dut.s_rst_n_i.value = 1
+        self.dut.s_rst_n.value = 0
+        await RisingEdge(self.dut.clk)
+        self.dut.s_rst_n.value = 1
 
     async def set(self):
-        self.dut.dst_mac_addr_i.value = 0x444546474849
-        self.dut.src_ipv4_addr_i.value = 0x19216801
-        self.dut.dst_ipv4_addr_i.value = 0x19216802
-        self.dut.src_udp_port_i.value = 0x2134
-        self.dut.dst_udp_port_i.value = 0x5467
+        self.dut.dst_mac_addr.value = 0x444546474849
+        self.dut.src_ipv4_addr.value = 0x19216801
+        self.dut.dst_ipv4_addr.value = 0x19216802
+        self.dut.src_udp_port.value = 0x2134
+        self.dut.dst_udp_port.value = 0x5467
 
     async def start(self):
-        self.dut.en_i.value = 1
-        await RisingEdge(self.dut.clk_i)
+        self.dut.en.value = 1
+        await RisingEdge(self.dut.clk)
 
     async def stop(self):
-        self.dut.en_i.value = 0
-        await RisingEdge(self.dut.clk_i)
+        self.dut.en.value = 0
+        await RisingEdge(self.dut.clk)
 
             
 
