@@ -80,11 +80,6 @@ module simple_dual_port_ram #
           $display("loading ram");
           $readmemh(INIT_FILE, mem);
         end
-      else
-        begin
-          $fatal(1, "init file is needed");
-        end
-
     end
 
   always_ff @(posedge wr_clk_i) 
