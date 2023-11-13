@@ -41,8 +41,8 @@ module simple_dual_port_ram #
 
   parameter          INIT_FILE      = "", 
 
-  localparam integer BYTE_VALID_WIDTH = DATA_WIDTH / 8,
-  localparam integer MEM_DEPTH        = 2 ** ADDR_WIDTH
+  localparam unsigned BYTE_VALID_WIDTH = DATA_WIDTH / 8,
+  localparam unsigned MEM_DEPTH        = 2 ** ADDR_WIDTH
 )
 (
   input  logic                            wr_clk_i,
