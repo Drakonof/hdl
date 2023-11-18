@@ -3,6 +3,7 @@
 module bit_rate_meter #
 (
   parameter unsigned CLK_MHZ_VAL = 100,
+  parameter unsigned DATA_WIDTH  = 32,
 
   localparam unsigned RES_WIDTH = 32
 )
@@ -12,31 +13,35 @@ module bit_rate_meter #
 
   input  logic                      data_valid_i,
 
-  output logic [RES_WIDTH - 1 : 0]  bit_rate_i
+  output logic [RES_WIDTH - 1 : 0]  bit_rate_o
 );
 
   
-  localparam unsigned                     TICKS_PER_SEC      = CLK_MHZ_VAL * 1000000;
+  localparam unsigned                     TICKS_PER_SEC      = CLK_MHZ_VAL;// * 1000000;
   localparam unsigned                     TICK_COUNTER_WIDTH = $clog2(TICKS_PER_SEC);
   localparam [TICK_COUNTER_WIDTH - 1 : 0] TICKS_NR           = TICKS_PER_SEC;
+
+  localparam unsigned                     SHITF_COEF         = $clog2(DATA_WIDTH);
 
 
   logic [TICK_COUNTER_WIDTH - 1 : 0] tick_counter;
 
-  logic [RES_WIDTH - 1 : 0] bit_counter;
-  logic [RES_WIDTH - 1 : 0] bit_rate;
+  logic [RES_WIDTH - 1 : 0]          bit_counter;
+  logic [RES_WIDTH - 1 : 0]          bit_rate;
+
+  logic                              get_val_flag;
   
 
   always_ff @(posedge clk_i)
     begin
-      if (s_rst_n_i == 'h1)
+      if (s_rst_n_i == '0)
       	begin
       	  tick_counter <= '0;
       	  get_val_flag <= '0;
       	end
       else
         begin
-          if (tick_counter == (TICKS_NR - 'h1))
+          if (tick_counter == TICKS_NR - 'h1)
             begin
               tick_counter <= '0;
               get_val_flag <= 'h1;
@@ -51,7 +56,7 @@ module bit_rate_meter #
 
   always_ff @(posedge clk_i)
     begin
-      if (s_rst_n_i == 'h1)
+      if (s_rst_n_i == '0)
       	begin
       	  bit_counter <= '0;
       	  bit_rate    <= '0;
@@ -61,7 +66,7 @@ module bit_rate_meter #
           if (get_val_flag == 'h1)
             begin
               bit_counter <= '0;
-              bit_rate    <= bit_counter;
+              bit_rate    <= (bit_counter << SHITF_COEF);
             end
           else if (data_valid_i == 'h1)
             begin
@@ -72,7 +77,7 @@ module bit_rate_meter #
 
   always_comb
     begin
-      bit_rate_i = bit_rate;
+      bit_rate_o = bit_rate;
     end
 
 
