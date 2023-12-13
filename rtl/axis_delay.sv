@@ -36,6 +36,7 @@ module axis_delay #
   logic [AXIS_DATA_WIDTH - 1 : 0]       axis_tdata_d;
   logic [(AXIS_DATA_WIDTH / 8) - 1 : 0] axis_tstrb_d;
   logic                                 axis_tlast_d;
+  logic                                 axis_tready_d;
 
 
   always_ff @(posedge clk_i)
@@ -44,11 +45,13 @@ module axis_delay #
       axis_tdata_d  <= s_axis_tdata;
       axis_tstrb_d  <= s_axis_tstrb;
       axis_tlast_d  <= s_axis_tlast;
+
+      axis_tready_d <= m_axis_tready;
     end
 
   always_comb
     begin
-      m_axis_tvalid = axis_tvalid_d;
+      m_axis_tvalid = axis_tvalid_d & axis_tready_d;
       m_axis_tdata  = axis_tdata_d;
       m_axis_tstrb  = axis_tstrb_d;
       m_axis_tlast  = axis_tlast_d;
