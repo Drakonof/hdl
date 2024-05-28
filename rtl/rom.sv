@@ -22,9 +22,11 @@ module rom #
 
   logic [DATA_WIDTH - 1 : 0] data;
 
+  int fd;
+
   initial 
     begin
-
+    
 `ifdef XILINX
       if ((RAM_TYPE != "distributed") || (RAM_TYPE != "block"))
         begin
@@ -34,7 +36,11 @@ module rom #
 
       if (INIT_FILE != "")
         begin
-          $display("loading rom");
+          fd = $fopen(INIT_FILE, "r");
+          if (fd == '0) $fatal(1, "file doesn't exist");
+          $fclose(fd);
+
+          $display("loading rom by %s", INIT_FILE);
           $readmemh(INIT_FILE, rom_mem);
         end
       else
